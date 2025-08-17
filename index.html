@@ -9,68 +9,160 @@
       display: block;
       margin: 0 auto;
     }
+
+    .circle-controls {
+      position: relative;
+      width: 200px;
+      height: 260px;
+      margin: 20px auto;
+    }
+
+    .circle-controls button {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      font-size: 20px;
+      border-radius: 50%;
+      border: none;
+      background-color: #4CAF50;
+      color: white;
+      cursor: pointer;
+    }
+
+    #upBtn { top: 0; left: 70px; }
+    #downBtn { top: 140px; left: 70px; }
+    #leftBtn { top: 70px; left: 0; }
+    #rightBtn { top: 70px; right: 0; }
+    #pauseBtn { top: 70px; left: 70px; background-color: #f44336; }
+
+    .footer {
+      width: 400px;
+      background-color: black;
+      color: white;
+      text-align: center;
+      padding: 10px;
+      margin: 10px auto;
+      font-family: sans-serif;
+      font-size: 14px;
+      border-radius: 5px;
+    }
+
+    #scoreDisplay {
+      text-align: center;
+      font-size: 20px;
+      font-family: sans-serif;
+      margin-top: 10px;
+      color: #333;
+    }
   </style>
 </head>
 <body>
+  <div id="scoreDisplay">Score: 0 | High Score: 0</div>
   <canvas id="game" width="400" height="400"></canvas>
+
+  <div class="circle-controls">
+    <button id="upBtn" onclick="setDirection(0, -gridSize)">⬆️</button>
+    <button id="downBtn" onclick="setDirection(0, gridSize)">⬇️</button>
+    <button id="leftBtn" onclick="setDirection(-gridSize, 0)">⬅️</button>
+    <button id="rightBtn" onclick="setDirection(gridSize, 0)">➡️</button>
+    <button id="pauseBtn" onclick="handlePauseOrRestart()">⏯️</button>
+  </div>
+
+  <div class="footer">
+    This futuristic game was developed by Prashant Simkhada, MD in 2025 AD :)
+  </div>
+
   <script>
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
+    const pauseBtn = document.getElementById("pauseBtn");
 
     const gridSize = 20;
     let snake = [
-  { x: 200, y: 200 },           // Head
-  { x: 180, y: 200 },           // Body
-  { x: 160, y: 200 }            // Tail
-];
+      { x: 200, y: 200 },
+      { x: 180, y: 200 },
+      { x: 160, y: 200 }
+    ];
 
     let direction = { x: gridSize, y: 0 };
     let food = { x: 100, y: 100 };
     let score = 0;
+    let highScore = 0;
+    let paused = false;
+    let gameOver = false;
 
     function drawRect(x, y, color) {
       ctx.fillStyle = color;
       ctx.fillRect(x, y, gridSize, gridSize);
     }
-function drawEyes(x, y) {
-  ctx.fillStyle = "white";
-  const eyeSize = 4;
-  ctx.beginPath();
-  ctx.arc(x + 5, y + 5, eyeSize, 0, Math.PI * 2); // Left eye
-  ctx.arc(x + 15, y + 5, eyeSize, 0, Math.PI * 2); // Right eye
-  ctx.fill();
-}
 
-function drawPointedTail(x, y) {
-  ctx.fillStyle = "darkgreen";
-  ctx.beginPath();
-  ctx.moveTo(x, y + gridSize);           // Bottom left
-  ctx.lineTo(x + gridSize / 2, y);       // Top center
-  ctx.lineTo(x + gridSize, y + gridSize); // Bottom right
-  ctx.closePath();
-  ctx.fill();
-}
+    function drawRotatedHead(x, y, dir) {
+      ctx.save();
+      ctx.translate(x + gridSize / 2, y + gridSize / 2);
+
+      let angle = 0;
+      if (dir.x === gridSize) angle = Math.PI / 2;
+      else if (dir.x === -gridSize) angle = -Math.PI / 2;
+      else if (dir.y === gridSize) angle = Math.PI;
+      else if (dir.y === -gridSize) angle = 0;
+
+      ctx.rotate(angle);
+      ctx.fillStyle = "lime";
+      ctx.fillRect(-gridSize / 2, -gridSize / 2, gridSize, gridSize);
+
+      drawEyesRotated();
+      ctx.restore();
+    }
+
+    function drawEyesRotated() {
+      ctx.fillStyle = "white";
+      const eyeSize = 4;
+      ctx.beginPath();
+      ctx.arc(-5, -5, eyeSize, 0, Math.PI * 2);
+      ctx.arc(5, -5, eyeSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawPointedTail(tail, beforeTail) {
+      const dx = tail.x - beforeTail.x;
+      const dy = tail.y - beforeTail.y;
+
+      ctx.save();
+      ctx.translate(tail.x + gridSize / 2, tail.y + gridSize / 2);
+
+      let angle = 0;
+      if (dx === gridSize) angle = Math.PI + Math.PI / 2;
+      else if (dx === -gridSize) angle = Math.PI / 2;
+      else if (dy === gridSize) angle = 0;
+      else if (dy === -gridSize) angle = Math.PI;
+
+      ctx.rotate(angle + Math.PI);
+      ctx.fillStyle = "darkgreen";
+      ctx.beginPath();
+      ctx.moveTo(-gridSize / 2, gridSize / 2);
+      ctx.lineTo(0, -gridSize / 2);
+      ctx.lineTo(gridSize / 2, gridSize / 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
 
     function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Draw tail (last segment)
-  const tail = snake[snake.length - 1];
-  drawPointedTail(tail.x, tail.y);
+      const tail = snake[snake.length - 1];
+      const beforeTail = snake[snake.length - 2];
+      drawPointedTail(tail, beforeTail);
 
-  // Draw body segments
-  for (let i = 1; i < snake.length - 1; i++) {
-    drawRect(snake[i].x, snake[i].y, "green");
-  }
+      for (let i = 1; i < snake.length - 1; i++) {
+        drawRect(snake[i].x, snake[i].y, "green");
+      }
 
-  // Draw head (first segment)
-  const head = snake[0];
-  drawRect(head.x, head.y, "lime");
-  drawEyes(head.x, head.y);
-  
-  // Draw food
-  drawRect(food.x, food.y, "red");
-}
+      const head = snake[0];
+      drawRotatedHead(head.x, head.y, direction);
+
+      drawRect(food.x, food.y, "red");
+    }
 
     function moveSnake() {
       let head = {
@@ -78,7 +170,6 @@ function drawPointedTail(x, y) {
         y: snake[0].y + direction.y
       };
 
-      // Wrap around walls
       head.x = (head.x + canvas.width) % canvas.width;
       head.y = (head.y + canvas.height) % canvas.height;
 
@@ -86,6 +177,7 @@ function drawPointedTail(x, y) {
 
       if (head.x === food.x && head.y === food.y) {
         score++;
+        if (score > highScore) highScore = score;
         food = {
           x: Math.floor(Math.random() * canvas.width / gridSize) * gridSize,
           y: Math.floor(Math.random() * canvas.height / gridSize) * gridSize
@@ -100,20 +192,46 @@ function drawPointedTail(x, y) {
       for (let i = 1; i < snake.length; i++) {
         if (snake[i].x === head.x && snake[i].y === head.y) {
           alert("Game Over! Score: " + score);
-          resetGame();
+          gameOver = true;
+          pauseBtn.textContent = "🔁";
           return;
         }
       }
     }
 
     function resetGame() {
-      snake = [{ x: 200, y: 200 }];
+      snake = [
+        { x: 200, y: 200 },
+        { x: 180, y: 200 },
+        { x: 160, y: 200 }
+      ];
       direction = { x: gridSize, y: 0 };
       score = 0;
       food = {
         x: Math.floor(Math.random() * canvas.width / gridSize) * gridSize,
         y: Math.floor(Math.random() * canvas.height / gridSize) * gridSize
       };
+      paused = false;
+      gameOver = false;
+      pauseBtn.textContent = "⏯️";
+    }
+
+    function handlePauseOrRestart() {
+      if (gameOver) {
+        resetGame();
+      } else {
+        togglePause();
+      }
+    }
+
+    function togglePause() {
+      paused = !paused;
+    }
+
+    function setDirection(x, y) {
+      if (x !== -direction.x || y !== -direction.y) {
+        direction = { x, y };
+      }
     }
 
     document.addEventListener("keydown", e => {
@@ -130,12 +248,14 @@ function drawPointedTail(x, y) {
     });
 
     function gameLoop() {
+      if (paused || gameOver) return;
       moveSnake();
       checkSelfCollision();
       draw();
+      document.getElementById("scoreDisplay").textContent = 
+        "Score: " + score + " | High Score: " + highScore;
     }
 
-    setInterval(gameLoop, 100);
+    setInterval(gameLoop, 200);
   </script>
-</body>
-</html>
+</body
